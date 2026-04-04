@@ -1,46 +1,34 @@
-# Иерархическая алгебра нулей (HZM)
+# HZM - Hierarchical Zero Mathematics
 
-**HZM** (Hierarchical Zero Mathematics) — это новая математическая система, которая позволяет корректно и безопасно работать с делением на ноль, не приводя к ошибкам, исключениям или появлению NaN.
+**HZM** (Hierarchical Zero Mathematics) is a new mathematical system that allows correct and safe handling of division by zero without raising errors, exceptions, or producing NaN values.
 
-Вместо того чтобы запрещать деление на ноль, HZM превращает его в **управляемый иерархический процесс** с помощью уровней глубины \(k\).
+Instead of forbidding division by zero, HZM transforms it into a **controlled hierarchical process** using depth levels \(k\).
 
-## Основная идея
+## Core Idea
 
-- Обычные вещественные числа остаются без изменений.
-- При возникновении сингулярности (деление на ноль, vanishing gradients и т.д.) результат становится **0_k** (глубокий нуль) или **±∞_k** (иерархическая бесконечность).
-- Уровень \(k\) количественно показывает **глубину сингулярности** — насколько серьёзной стала проблема.
-- Все арифметические операции остаются определёнными и замкнутыми.
+- Regular real numbers remain unchanged.
+- When a singularity occurs (division by zero, vanishing gradients, etc.), the result becomes either a **deep zero \(0_k\)** or a **hierarchical infinity \(∞_k\)**.
+- The level \(k\) quantitatively represents the **depth of the singularity** — how severe the problem is.
+- All arithmetic operations remain well-defined and closed.
 
-## Возможности библиотеки
+## Features
 
-- Полная поддержка всех арифметических операций с иерархическими нулями и бесконечностями
-- Автоматическое углубление уровней при возникновении сингулярностей
-- Проекция на машинные числа (IEEE 754) для совместимости с существующими программами
-- Поддержка векторных и матричных операций
-- Встроенное логирование уровня \(k\) для анализа и отладки
+- Full support for all arithmetic operations with hierarchical zeros and infinities
+- Automatic level deepening when singularities appear
+- Projection onto machine floating-point numbers (IEEE 754) for compatibility
+- Support for vector and matrix operations
+- Built-in logging of level \(k\) for debugging and analysis
 
-## Области применения
+## Applications
 
-- **Машинное обучение** — стабилизация градиентного спуска, борьба с vanishing и exploding gradients
-- **Физическое моделирование** — моделирование сингулярностей чёрных дыр и других гравитационных объектов
-- **Безопасное программирование** — создание отказоустойчивых систем реального времени
-- **Финансовая математика** — моделирование кризисных состояний и рисков
+- **Machine Learning** — stable gradient descent, handling vanishing and exploding gradients
+- **Physics Simulation** — modeling singularities in black holes and other gravitational phenomena
+- **Safety-Critical Programming** — fault-tolerant real-time systems
+- **Financial Mathematics** — modeling crises and risk assessment
   
-### Проект разработан в рамках исследовательской работы по созданию новой алгебраической системы
-### (Библиотека находится в стадии активной разработки)
+### The library is under active development. Changes are possible.
+### This project was completed as part of a research project in mathematics called "Algebra of Zeros".
+## Installation
 
-## Быстрый старт python
 ```bash
-from hzm import HierZero
-
-a = HierZero(10.0)
-b = HierZero(0, level=2)        # нуль уровня 2
-
-result = a / b                  # результат: ∞_3
-print(result)
-
-print(result * b)               # результат: 0_5
-
-## Установка
-
 pip install hzm
