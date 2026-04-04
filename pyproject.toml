@@ -1,1 +1,21 @@
+[project]
+name = "hzm"
+version = "0.1.0"
+description = "Иерархическая алгебра нулей (HZM) — библиотека для работы с делением на ноль"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Марат Джанбулатов" }
+]
+requires-python = ">=3.8"
 
+[project.urls]
+Homepage = "https://github.com/kron222666/hzm"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
