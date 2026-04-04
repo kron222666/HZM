@@ -9,12 +9,4 @@ from .projection import projection, HZMProjection
 __version__ = "0.1.0"
 __author__ = "Марат Джанбулатов"
 
-# Основной экспорт
-__all__ = [
-    "HierZero",
-    "add", "sub", "mul", "div", "power", "root", "neg",
-    "projection", "HZMProjection"
-]
-
-# Для удобства использования
-HierZero = HierZero
+__all__ = ["HierZero", "add", "sub", "mul", "div", "power", "root", "neg", "projection"]
