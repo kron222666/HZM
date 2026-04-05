@@ -50,31 +50,46 @@ def _add(a: HierZero, b: HierZero) -> HierZero:
 def _sub(a: HierZero, b: HierZero) -> HierZero:
     if a.is_perp or b.is_perp:
         return HierZero.perp()
+    
+    # 0_k - 0_m = 0_{min(k,m)}
+    if (not a.is_inf and a.level >= 1 and 
+        not b.is_inf and b.level >= 1):
+        return HierZero.zero(min(a.level, b.level))
+    
     # a - 0_k = a
     if not b.is_inf and b.level >= 1:
         return a
+    
     # a - обычное число
     if b.level == 0:
         if a.level == 0:
             return HierZero.real(a.value - b.value)
-        if not a.is_inf:  # 0_k - число = 0_k
+        if not a.is_inf:          # 0_k - число = 0_k
             return a
-        if a.is_inf:      # ∞_k - число = ∞_k (знак сохраняется)
+        if a.is_inf:              # ∞_k - число = ∞_k
             return a
-    # a - ∞_k
+    
+    # a - ∞_k (работаем с b.is_inf)
     if b.is_inf:
+        # Случай a - (-∞_k)
+        if b.sign == -1:
+            # a - (-∞_k) = +∞_k, если a не глубокий нуль
+            if not a.is_inf and a.level > 0:
+                return a            # 0_k - (-∞_m) = 0_k
+            else:
+                return HierZero.infinity(b.level, sign=1)   # +∞_k
+        
+        # Случай a - (+∞_k)
         if a.level == 0:
-            # число - ∞_k = -∞_k
-            return HierZero.infinity(b.level, sign=-1)
-        if not a.is_inf:  # 0_m - ∞_k = 0_m? По таблице: 0_k - ∞_m = 0_k
+            return HierZero.infinity(b.level, sign=-1)   # -∞_k
+        if not a.is_inf:            # 0_m - ∞_k = 0_m
             return a
-        if a.is_inf:
-            # ∞_m - ∞_k
+        if a.is_inf:                # ∞_m - ∞_k
             if a.level == b.level:
                 return HierZero.perp()
-            # Результат: ∞_{min(m,k)} с положительным знаком (согласно тесту)
             min_level = min(a.level, b.level)
             return HierZero.infinity(min_level, sign=1)
+    
     return HierZero.perp()
 
 
