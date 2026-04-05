@@ -1,12 +1,9 @@
 import math
 
 class HierZero:
-    """
-    Основной класс Иерархической алгебры нулей (HZM)
-    Финальная версия, максимально близкая к нашим исходным правилам
-    """
-    VANISHING_THRESHOLD = 1e-4
-    EXPLODING_THRESHOLD = 1e4
+    
+    VANISHING_THRESHOLD = 1e-3
+    EXPLODING_THRESHOLD = 1e3
 
     def __init__(self, value=0.0, level=0, is_inf=False, sign=1):
         self.value = float(value)
