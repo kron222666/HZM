@@ -3,6 +3,7 @@ import math
 class HierZero:
     """
     Основной класс Иерархической алгебры нулей (HZM)
+    Финальная версия с исправленной логикой деления
     """
     VANISHING_THRESHOLD = 1e-3
     EXPLODING_THRESHOLD = 1e3
@@ -14,7 +15,7 @@ class HierZero:
         self.sign = 1 if sign >= 0 else -1
         self.is_perp = False
 
-        # Автоматическое определение уровня vanishing/exploding
+        # Автоматическое определение уровня
         if self.level == 0 and not self.is_inf and abs(self.value) > 0:
             abs_val = abs(self.value)
             if abs_val < self.VANISHING_THRESHOLD:
@@ -119,19 +120,13 @@ class HierZero:
         if other.is_perp or self.is_perp:
             return self.perp()
 
-        # Деление на нуль любого уровня
-        if other.level > 0:
-            return HierZero(0, other.level + 1, True, self.sign)
+        # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: деление на ноль
+        if other.level > 0 or (not other.is_inf and abs(other.value) < 1e-12):
+            return HierZero(0, other.level + 1 if other.level > 0 else 1, True, self.sign)
 
-        # Деление на обычный ноль (x / 0)
-        if not other.is_inf and other.value == 0:
-            return HierZero(0, 1, True, self.sign)
-
-        # Число / ∞ = 0
         if other.is_inf:
             return HierZero(0, other.level)
 
-        # ∞ / число
         if self.is_inf:
             return HierZero(0, self.level, True, self.sign)
 
@@ -153,7 +148,7 @@ class HierZero:
         if self.level > 0 and not other.is_inf and other.level == 0:
             if other.value > 0:
                 return HierZero(0, int(self.level * other.value))
-            else:  # отрицательная степень
+            else:
                 return HierZero(0, int((self.level + 1) * abs(other.value)), True, self.sign)
 
         if self.is_inf and not other.is_inf and other.level == 0:
