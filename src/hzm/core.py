@@ -97,7 +97,7 @@ class HierZero:
             return HierZero(0, other.level + (self.level if self.level > 0 else 0))
 
         if self.is_inf and other.is_inf:
-            return HierZero(0, self.level + other.level, True, self.sign * other.sign)
+            return HierZero(0, self.level + other.level, True, self.sign * other.sign)   # ∞ * ∞ = ∞_{k+m}
 
         if self.is_inf:
             return HierZero(0, self.level, True, self.sign * other.sign)
@@ -118,14 +118,15 @@ class HierZero:
             return self.perp()
 
         if other.level > 0:
-            return HierZero(0, other.level + 1, True, self.sign)
+            return HierZero(0, other.level + 1, True, self.sign)   # a / 0_k = ∞_{k+1}
 
-        if other.is_inf:return HierZero(0, other.level)
+        if other.is_inf:
+            return HierZero(0, other.level)
 
         if self.is_inf:
             return HierZero(0, self.level, True, self.sign)
 
-        if other.value == 0 or abs(other.value) < 1e-12:
+        if other.value == 0 or abs(other.value) < 1e-10:
             return HierZero(0, 1, True, self.sign)
 
         return HierZero(self.value / other.value)
@@ -146,7 +147,7 @@ class HierZero:
         if self.level > 0 and not other.is_inf and other.level == 0:
             if other.value > 0:
                 return HierZero(0, int(self.level * other.value))
-            else:  # отрицательная степень
+            else:
                 return HierZero(0, int((self.level + 1) * abs(other.value)), True, self.sign)
 
         if self.is_inf and not other.is_inf and other.level == 0:
