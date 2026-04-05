@@ -1,13 +1,14 @@
 [project]
 name = "hzm"
 version = "0.1.0"
-description = "Иерархическая алгебра нулей (HZM) — библиотека для работы с делением на ноль"
+description = "Hierarchical Zero Mathematics — расширение арифметики для работы с делением на ноль"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Марат Джанбулатов" }
 ]
 requires-python = ">=3.8"
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/kron222666/hzm"
