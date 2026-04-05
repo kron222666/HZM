@@ -3,9 +3,10 @@ import math
 class HierZero:
     """
     Основной класс Иерархической алгебры нулей (HZM)
+    Финальная версия, максимально близкая к нашим исходным правилам
     """
-    VANISHING_THRESHOLD = 1e-3
-    EXPLODING_THRESHOLD = 1e3
+    VANISHING_THRESHOLD = 1e-4
+    EXPLODING_THRESHOLD = 1e4
 
     def __init__(self, value=0.0, level=0, is_inf=False, sign=1):
         self.value = float(value)
@@ -55,7 +56,7 @@ class HierZero:
             if self.sign == other.sign:
                 return HierZero(0, min(self.level, other.level), True, self.sign)
             else:
-                return self.perp()
+                return self.perp()                    # ∞ + (-∞) = ⊥
 
         if self.is_inf:
             return self
@@ -111,7 +112,7 @@ class HierZero:
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    # ====================== ДЕЛЕНИЕ (усиленная версия) ======================
+    # ====================== ДЕЛЕНИЕ ======================
     def __truediv__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
@@ -119,18 +120,17 @@ class HierZero:
         if other.is_perp or self.is_perp:
             return self.perp()
 
-        # === УСИЛЕННАЯ ЛОГИКА ДЕЛЕНИЯ НА НОЛЬ ===
-        # Если знаменатель - нуль любого уровня или очень близок к нулю
-        if other.level > 0 or (not other.is_inf and abs(other.value) < 1e-8):
-            return HierZero(0, other.level + 1 if other.level > 0 else 1, True, self.sign)
+        if other.level > 0:
+            return HierZero(0, other.level + 1, True, self.sign)
 
-        if other.is_inf:
-            return HierZero(0, other.level)
+        if other.is_inf:return HierZero(0, other.level)
 
         if self.is_inf:
             return HierZero(0, self.level, True, self.sign)
 
-        # Обычное деление
+        if other.value == 0 or abs(other.value) < 1e-12:
+            return HierZero(0, 1, True, self.sign)
+
         return HierZero(self.value / other.value)
 
     def __rtruediv__(self, other):
@@ -149,7 +149,7 @@ class HierZero:
         if self.level > 0 and not other.is_inf and other.level == 0:
             if other.value > 0:
                 return HierZero(0, int(self.level * other.value))
-            else:
+            else:  # отрицательная степень
                 return HierZero(0, int((self.level + 1) * abs(other.value)), True, self.sign)
 
         if self.is_inf and not other.is_inf and other.level == 0:
