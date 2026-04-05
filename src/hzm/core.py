@@ -6,7 +6,7 @@ class HierZero:
     С автоматическим определением уровня градиента
     """
     # Пороги для автоматического определения уровня
-    VANISHING_THRESHOLD = 1e-4
+    VANISHING_THRESHOLD = 1e-3
     EXPLODING_THRESHOLD = 1e4
 
     def __init__(self, value=0.0, level=0, is_inf=False, sign=1):
