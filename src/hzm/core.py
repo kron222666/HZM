@@ -1,13 +1,35 @@
+import math
+
 class HierZero:
     """
     Основной класс Иерархической алгебры нулей (HZM)
+    С автоматическим определением уровня градиента
     """
+    # Пороги для автоматического определения уровня
+    VANISHING_THRESHOLD = 1e-4
+    EXPLODING_THRESHOLD = 1e4
+
     def __init__(self, value=0.0, level=0, is_inf=False, sign=1):
         self.value = float(value)
         self.level = max(0, int(level))
         self.is_inf = bool(is_inf)
         self.sign = 1 if sign >= 0 else -1
         self.is_perp = False
+
+        # Автоматическое определение уровня, если level == 0 и это не ∞
+        if self.level == 0 and not self.is_inf and abs(self.value) > 0:
+            abs_val = abs(self.value)
+            
+            if abs_val < self.VANISHING_THRESHOLD:
+                # Vanishing gradient
+                self.level = max(1, int(-math.log10(abs_val)) // 2)
+                self.value = 0.0
+                
+            elif abs_val > self.EXPLODING_THRESHOLD:
+                # Exploding gradient
+                self.level = max(1, int(math.log10(abs_val)) // 2)
+                self.is_inf = True
+                self.value = 0.0
 
     def __repr__(self):
         if self.is_perp:
@@ -100,8 +122,7 @@ class HierZero:
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
-        if other.is_perp or self.is_perp:
-            return self.perp()
+        if other.is_perp or self.is_perp:return self.perp()
 
         if other.level > 0:
             return HierZero(0, other.level + 1, True, self.sign)
@@ -130,30 +151,24 @@ class HierZero:
         if self.is_perp or other.is_perp:
             return self.perp()
 
-        # 0_k ^ положительное целое
         if self.level > 0 and not other.is_inf and other.level == 0:
             if other.value > 0:
                 return HierZero(0, int(self.level * other.value))
-            else:  
-                # 0_k ^ (-n) = (1 / 0_k) ^ n = ∞_{k+1} ^ n = ∞_{(k+1)*n}
+            else:  # отрицательная степень
                 return HierZero(0, int((self.level + 1) * abs(other.value)), True, self.sign)
 
-        # ∞_k ^ n
         if self.is_inf and not other.is_inf and other.level == 0:
             if other.value > 0:
                 return HierZero(0, int(self.level * other.value), True, self.sign)
             else:
                 return HierZero(0, int(self.level * abs(other.value)))
 
-        # 0_k ^ ∞_m
         if self.level > 0 and other.is_inf:
             return HierZero(0, self.level + other.level)
 
-        # ∞_k ^ ∞_m
         if self.is_inf and other.is_inf:
             return HierZero(0, self.level + other.level, True, self.sign)
 
-        # Обычное возведение в степень
         return HierZero(self.value ** other.value)
 
     # ====================== УНАРНЫЙ МИНУС ======================
@@ -161,6 +176,7 @@ class HierZero:
         return HierZero(self.value, self.level, self.is_inf, -self.sign)
 
     def perp(self):
+        """Создаёт поглощающий элемент ⊥"""
         obj = HierZero(0)
         obj.is_perp = True
         return obj
