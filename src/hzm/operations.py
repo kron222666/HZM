@@ -48,8 +48,34 @@ def _add(a: HierZero, b: HierZero) -> HierZero:
 
 # ---------- Вычитание ----------
 def _sub(a: HierZero, b: HierZero) -> HierZero:
-    # a - b = a + (-b)
-    return _add(a, -b)
+    if a.is_perp or b.is_perp:
+        return HierZero.perp()
+    # a - 0_k = a
+    if not b.is_inf and b.level >= 1:
+        return a
+    # a - обычное число
+    if b.level == 0:
+        if a.level == 0:
+            return HierZero.real(a.value - b.value)
+        if not a.is_inf:  # 0_k - число = 0_k
+            return a
+        if a.is_inf:      # ∞_k - число = ∞_k (знак сохраняется)
+            return a
+    # a - ∞_k
+    if b.is_inf:
+        if a.level == 0:
+            # число - ∞_k = -∞_k
+            return HierZero.infinity(b.level, sign=-1)
+        if not a.is_inf:  # 0_m - ∞_k = 0_m? По таблице: 0_k - ∞_m = 0_k
+            return a
+        if a.is_inf:
+            # ∞_m - ∞_k
+            if a.level == b.level:
+                return HierZero.perp()
+            # Результат: ∞_{min(m,k)} с положительным знаком (согласно тесту)
+            min_level = min(a.level, b.level)
+            return HierZero.infinity(min_level, sign=1)
+    return HierZero.perp()
 
 
 # ---------- Умножение ----------
@@ -188,16 +214,17 @@ def sqrt(x: Number, n: int = 2) -> HierZero:
         return HierZero.perp()
     # 0_k
     if not a.is_inf and a.level >= 1:
-        new_level = (a.level + n - 1) // n  # ceil(k/n)
+        new_level = (a.level + n - 1) // n
         return HierZero.zero(new_level)
     # ∞_k
     if a.is_inf:
+        # корень чётной степени из отрицательной бесконечности = ⊥
+        if n % 2 == 0 and a.sign == -1:
+            return HierZero.perp()
         new_level = (a.level + n - 1) // n
-        # знак сохраняется только для нечётных n
         if n % 2 == 1:
             return HierZero.infinity(new_level, sign=a.sign)
         else:
-            # корень чётной степени из бесконечности даёт положительную бесконечность
             return HierZero.infinity(new_level, sign=1)
     return HierZero.perp()
 
@@ -213,7 +240,17 @@ def log(arg: Number, base: Number = None) -> HierZero:
     if a.is_perp or b.is_perp:
         return HierZero.perp()
 
-    # log_b(1) = 0 для любого допустимого b
+    # Обычный логарифм (оба числа)
+    if a.level == 0 and b.level == 0:
+        if b.value <= 0 or b.value == 1 or a.value <= 0:
+            # логарифм определён только для b>0, b≠1, a>0
+            if b.value > 0 and abs(b.value - 1.0) > 1e-12 and a.value > 0:
+                return HierZero.real(math.log(a.value, b.value))
+            else:
+                return HierZero.perp()
+        return HierZero.real(math.log(a.value, b.value))
+
+    # log_b(1) = 0
     if (a.level == 0 and abs(a.value - 1.0) < 1e-12) or \
        (not a.is_inf and a.level == 0 and a.value == 1.0):
         return HierZero.real(0.0)
@@ -222,31 +259,34 @@ def log(arg: Number, base: Number = None) -> HierZero:
     if b.level == 0 and abs(b.value - 1.0) < 1e-12:
         return HierZero.perp()
 
-    # log_b(0_k) для b>0, b≠1
+    # log_b(0_k) = -∞_k (b>0, b≠1)
     if not a.is_inf and a.level >= 1:
         if b.level == 0 and b.value > 0 and abs(b.value - 1.0) > 1e-12:
             return HierZero.infinity(a.level, sign=-1)
 
-    # log_b(∞_k) для b>0, b≠1
+    # log_b(∞_k) = +∞_k (b>0, b≠1)
     if a.is_inf:
+        # отрицательная бесконечность -> ⊥
+        if a.sign == -1:
+            return HierZero.perp()
         if b.level == 0 and b.value > 0 and abs(b.value - 1.0) > 1e-12:
             return HierZero.infinity(a.level, sign=1)
 
-    # log_{0_k}(a) для a>0, a≠1
+    # log_{0_k}(a) = 0_k (a>0, a≠1)
     if not b.is_inf and b.level >= 1:
         if a.level == 0 and a.value > 0 and abs(a.value - 1.0) > 1e-12:
             return HierZero.zero(b.level)
 
-    # log_{∞_k}(a) для a>0, a≠1
+    # log_{∞_k}(a) = 0_k (a>0, a≠1)
     if b.is_inf:
         if a.level == 0 and a.value > 0 and abs(a.value - 1.0) > 1e-12:
             return HierZero.zero(b.level)
 
     # log_{0_k}(∞_m) = -∞_k
-    if not b.is_inf and b.level >= 1 and a.is_inf:
+    if not b.is_inf and b.level >= 1 and a.is_inf and a.sign == 1:
         return HierZero.infinity(b.level, sign=-1)
 
-    # log_{∞_k}(0_m) = ⊥? По таблице: log_{∞_k}(0_m) = ⊥
+    # log_{∞_k}(0_m) = ⊥
     if b.is_inf and not a.is_inf and a.level >= 1:
         return HierZero.perp()
 
@@ -255,7 +295,7 @@ def log(arg: Number, base: Number = None) -> HierZero:
         return HierZero.perp()
 
     # log_{∞_k}(∞_m)
-    if b.is_inf and a.is_inf:
+    if b.is_inf and a.is_inf and a.sign == 1:
         if b.level == a.level:
             return HierZero.perp()
         diff = a.level - b.level
