@@ -3,7 +3,7 @@ import math
 class HierZero:
     """
     Основной класс Иерархической алгебры нулей (HZM)
-    Финальная версия с исправленной логикой деления
+    Финальная версия с усиленной логикой деления
     """
     VANISHING_THRESHOLD = 1e-3
     EXPLODING_THRESHOLD = 1e3
@@ -112,7 +112,7 @@ class HierZero:
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    # ====================== ДЕЛЕНИЕ (исправлено) ======================
+    # ====================== ДЕЛЕНИЕ (усиленная версия) ======================
     def __truediv__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
@@ -120,8 +120,9 @@ class HierZero:
         if other.is_perp or self.is_perp:
             return self.perp()
 
-        # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: деление на ноль
-        if other.level > 0 or (not other.is_inf and abs(other.value) < 1e-12):
+        # === КРИТИЧЕСКАЯ ЛОГИКА ДЕЛЕНИЯ НА НОЛЬ ===
+        # Если знаменатель близок к нулю или уже является нулём
+        if other.level > 0 or (not other.is_infand abs(other.value) < 1e-10):
             return HierZero(0, other.level + 1 if other.level > 0 else 1, True, self.sign)
 
         if other.is_inf:
@@ -130,6 +131,7 @@ class HierZero:
         if self.is_inf:
             return HierZero(0, self.level, True, self.sign)
 
+        # Обычное деление
         return HierZero(self.value / other.value)
 
     def __rtruediv__(self, other):
