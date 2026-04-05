@@ -1,16 +1,7 @@
-"""
-HZM - Иерархическая алгебра нулей (Hierarchical Zero Mathematics)
-"""
+"""HZM: Hierarchical Zero Algebra for Python."""
 
 from .core import HierZero
-from .operations import add, sub, mul, div, power, root, log
-from .projection import projection, HZMProjection
+from .projection import project_to_float, from_float
+from .operations import sqrt, log
 
-__version__ = "0.1.0"
-__author__ = "Марат Джанбулатов"
-
-__all__ = [
-    "HierZero",
-    "add", "sub", "mul", "div", "power", "root", "log",
-    "projection", "HZMProjection"
-]
+__all__ = ["HierZero", "project_to_float", "from_float", "sqrt", "log"]
