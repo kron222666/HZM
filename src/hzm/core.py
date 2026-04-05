@@ -138,3 +138,22 @@ class HierZero:
         if self.level == 0:
             return HierZero.real(abs(self.value))
         return self  # нуль неотрицателен
+
+from __future__ import annotations
+from typing import Union, Optional
+import math
+
+Number = Union[int, float, "HierZero"]
+
+
+class HierZero:
+    # ... (весь класс без изменений, как в предыдущем сообщении) ...
+    # (скопируйте сюда полный класс из предыдущего ответа, он правильный)
+
+
+# ------------------------------------------------------------
+# Вспомогательная функция приведения к HierZero (добавить в core.py)
+def _to_hz(x: Number) -> HierZero:
+    if isinstance(x, HierZero):
+        return x
+    return HierZero.real(float(x))
