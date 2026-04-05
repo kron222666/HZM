@@ -22,10 +22,8 @@ def root(x, n):
     n = HierZero(n)
     if n.level == 0 and n.value <= 0:
         return HierZero.perp()
-    # Чётный корень из отрицательной бесконечности -> ⊥
     if x.is_inf and x.sign < 0 and n.level == 0 and (int(n.value) % 2 == 0):
         return HierZero.perp()
-    # Для нулей и бесконечностей используем степень
     return x ** (HierZero(1.0) / n)
 
 def log(base, arg):
@@ -40,12 +38,12 @@ def log(base, arg):
     if base.level == 0 and not base.is_inf and base.value == 1:
         return HierZero.perp()
 
-    # Обычные числа (base>0, base≠1, arg>0)
+    # Обычные числа
     if (base.level == 0 and not base.is_inf and base.value > 0 and base.value != 1 and
         arg.level == 0 and not arg.is_inf and arg.value > 0):
         return HierZero(math.log(arg.value, base.value))
 
-    # log_{0_k} a = 0_k  (a > 0, a≠1)
+    # log_{0_k} a = 0_k  (a > 0 обычное)
     if base.level > 0 and arg.level == 0 and not arg.is_inf and arg.value > 0 and arg.value != 1:
         return HierZero(0, base.level)
 
@@ -57,7 +55,7 @@ def log(base, arg):
     if base.level > 0 and arg.is_inf:
         return HierZero(0, base.level, is_inf=True, sign=-1)
 
-    # log_{∞_k} a = 0_k  (a>0, a≠1)
+    # log_{∞_k} a = 0_k
     if base.is_inf and arg.level == 0 and not arg.is_inf and arg.value > 0 and arg.value != 1:
         return HierZero(0, base.level)
 
@@ -70,9 +68,7 @@ def log(base, arg):
         if base.level == arg.level:
             return HierZero.perp()
         else:
-            # по таблице: ∞_{m-k} при m>k, иначе 0_{...}? Пока вернём ∞_{min(k,m)}? Но проще вернуть ⊥
-            # для определённости вернём ∞_{min(k,m)} (молодая бесконечность)
+            # молодой уровень доминирует (∞_{min(k,m)})
             return HierZero(0, min(base.level, arg.level), is_inf=True, sign=1)
 
-    # Если ничего не подошло -> ⊥
     return HierZero.perp()
