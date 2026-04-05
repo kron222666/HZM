@@ -1,44 +1,37 @@
-import sys
-import math
 from .core import HierZero
+import math
 
-class HZMProjection:
-    """Проекция HZM на float IEEE 754 и обратно"""
+def project_to_float(x: HierZero, eps: float = 1e-7, max_val: float = 1e7) -> float:
+    """
+    Проецирует элемент HZM на вещественное число по правилам:
+    - 0ₖ → 0.0 (underflow не моделируется, возвращается 0)
+    - ∞ₖ → inf
+    - ⊥ → nan
+    - Обычное число → как есть
+    """
+    if x.is_perp:
+        return float('nan')
+    if x.is_inf:
+        return math.inf if x.sign == 1 else -math.inf
+    if x.level == 0:
+        return x.value
+    return 0.0  # глубокий нуль
 
-    def __init__(self, epsilon=None, max_float=None):
-        self.epsilon = epsilon if epsilon is not None else sys.float_info.epsilon * 100
-        self.max_float = max_float if max_float is not None else sys.float_info.max
-
-    def to_float(self, hzm: HierZero) -> float:
-        """HZM -> float"""
-        if hzm.is_perp:
-            return float('nan')
-        if hzm.is_inf:
-            return float('inf') if hzm.sign > 0 else float('-inf')
-        if hzm.level > 0:
-            # Глубокий нуль -> очень маленькое число
-            underflow = self.epsilon / (2 ** hzm.level)
-            if underflow < sys.float_info.min:
-                return 0.0
-            return underflow * hzm.sign
-        return hzm.value * hzm.sign
-
-    def from_float(self, value: float) -> HierZero:
-        """float -> HZM"""
-        if math.isnan(value):
-            return HierZero.perp()
-        if math.isinf(value):
-            return HierZero(0, level=1, is_inf=True, sign=1 if value > 0 else -1)
-        if value == 0.0:
-            return HierZero(0.0)
-        abs_val = abs(value)
-        if abs_val < self.epsilon:
-            level = max(1, int(-math.log10(abs_val)) // 2)
-            return HierZero(0.0, level=level)
-        if abs_val > self.max_float * 0.9:
-            level = max(1, int(math.log10(abs_val)) // 2)
-            return HierZero(0.0, level=level, is_inf=True, sign=1 if value > 0 else -1)
-        return HierZero(value)
-
-# Глобальный экземпляр
-projection = HZMProjection()
+def from_float(x: float, eps: float = 1e-7, max_val: float = 1e7) -> HierZero:
+    """
+    Преобразует float в HierZero с автоматическим определением уровня k
+    на основе порогов underflow/overflow.
+    """
+    if math.isnan(x):
+        return HierZero.perp()
+    if math.isinf(x):
+        # бесконечность получает уровень 1 (можно уточнить)
+        return HierZero.infinity(level=1, sign=1 if x>0 else -1)
+    absx = abs(x)
+    if absx < eps:
+        # underflow -> 0₁
+        return HierZero.zero(1)
+    if absx > max_val:
+        # overflow -> ∞₁
+        return HierZero.infinity(level=1, sign=1 if x>0 else -1)
+    return HierZero.real(x)
