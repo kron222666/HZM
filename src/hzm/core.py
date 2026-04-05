@@ -3,7 +3,6 @@ import math
 class HierZero:
     """
     Основной класс Иерархической алгебры нулей (HZM)
-    Финальная версия с усиленной логикой деления
     """
     VANISHING_THRESHOLD = 1e-3
     EXPLODING_THRESHOLD = 1e3
