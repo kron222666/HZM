@@ -1,19 +1,28 @@
 import math
 
 class HierZero:
-    
+    """Основной класс иерархической алгебры нулей"""
+
+    # Пороги для автоматического определения уровня (только при инициализации)
     VANISHING_THRESHOLD = 1e-3
     EXPLODING_THRESHOLD = 1e3
 
-    def __init__(self, value=0.0, level=0, is_inf=False, sign=1):
+    def __init__(self, value=0.0, level=0, is_inf=False, sign=1, is_perp=False):
+        """
+        value: числовое значение (используется только при level==0 и не is_inf)
+        level: целый неотрицательный уровень (0 для обычных чисел)
+        is_inf: является ли иерархической бесконечностью
+        sign: знак (1 или -1)
+        is_perp: является ли поглощающим элементом ⊥
+        """
         self.value = float(value)
         self.level = max(0, int(level))
         self.is_inf = bool(is_inf)
         self.sign = 1 if sign >= 0 else -1
-        self.is_perp = False
+        self.is_perp = bool(is_perp)
 
-        # Автоматическое определение уровня (только для обычных чисел)
-        if self.level == 0 and not self.is_inf and abs(self.value) > 0:
+        # Автоматическое определение уровня для обычных чисел (если level==0, не is_inf, не perp)
+        if not self.is_perp and self.level == 0 and not self.is_inf and abs(self.value) > 0:
             abs_val = abs(self.value)
             if abs_val < self.VANISHING_THRESHOLD:
                 self.level = max(1, int(-math.log10(abs_val)) // 2)
@@ -23,12 +32,22 @@ class HierZero:
                 self.is_inf = True
                 self.value = 0.0
 
+    # ========== Вспомогательные методы ==========
+    def copy(self):
+        """Создаёт копию объекта"""
+        return HierZero(self.value, self.level, self.is_inf, self.sign, self.is_perp)
+
+    @staticmethod
+    def perp():
+        """Возвращает поглощающий элемент ⊥"""
+        return HierZero(is_perp=True)
+
+    # ========== Представление ==========
     def __repr__(self):
         if self.is_perp:
             return "⊥"
         if self.is_inf:
-            sign_str = "-" if self.sign < 0 else ""
-            return f"{sign_str}∞_{self.level}"
+            return f"{'-' if self.sign < 0 else ''}∞_{self.level}"
         if self.level > 0:
             return f"0_{self.level}"
         return f"{self.value:.6f}"
@@ -36,68 +55,68 @@ class HierZero:
     def __str__(self):
         return self.__repr__()
 
-    # ====================== СЛОЖЕНИЕ ======================
+    # ========== Сложение ==========
     def __add__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
         if self.is_perp or other.is_perp:
-            return self.perp()
+            return HierZero.perp()
 
         # 0_k + 0_m = 0_{min(k,m)}
         if self.level > 0 and other.level > 0:
             return HierZero(0, min(self.level, other.level))
 
-        # Глубокий нуль + что угодно = нуль
+        # Глубокий нуль + что-либо = нуль
         if self.level > 0:
-            return self
+            return self.copy()
         if other.level > 0:
-            return other
+            return other.copy()
 
         # ∞ + ∞
         if self.is_inf and other.is_inf:
             if self.sign == other.sign:
-                # одинаковые знаки → ∞_{min(level)}
-                return HierZero(0, min(self.level, other.level), True, self.sign)
+                # одинаковые знаки: ∞_{min(level)}
+                return HierZero(0, min(self.level, other.level), is_inf=True, sign=self.sign)
             else:
-                # разные знаки: если уровни равны → ⊥, иначе → молодая бесконечность
+                # разные знаки: если уровни равны → ⊥, иначе молодая бесконечность
                 if self.level == other.level:
-                    return self.perp()
+                    return HierZero.perp()
                 elif self.level < other.level:
-                    return HierZero(0, self.level, True, self.sign)
+                    return HierZero(0, self.level, is_inf=True, sign=self.sign)
                 else:
-                    return HierZero(0, other.level, True, other.sign)
+                    return HierZero(0, other.level, is_inf=True, sign=other.sign)
 
-        # ∞ + число (или число + ∞)
+        # ∞ + число = ∞
         if self.is_inf:
-            return self
+            return self.copy()
         if other.is_inf:
-            return other
+            return other.copy()
 
-        # обычное сложение
+        # обычные числа
         return HierZero(self.value + other.value)
 
     def __radd__(self, other):
         return self.__add__(other)
 
-    # ====================== ВЫЧИТАНИЕ ======================
+    # ========== Вычитание ==========
     def __sub__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
         if self.is_perp or other.is_perp:
-            return self.perp()
+            return HierZero.perp()
 
         # 0_k - 0_m = 0_{min(k,m)}
         if self.level > 0 and other.level > 0:
             return HierZero(0, min(self.level, other.level))
 
-        # a - 0_k = a (число или бесконечность)
+        # a - 0_k = a
         if other.level > 0:
-            return self
+            return self.copy()
 
-        # Для бесконечностей и чисел: a - b = a + (-b)
-        neg_other = HierZero(other.value, other.level, other.is_inf, -other.sign)
+        # Для остальных: a - b = a + (-b)
+        neg_other = HierZero(other.value, other.level, other.is_inf, -other.sign, other.is_perp)
         return self.__add__(neg_other)
 
     def __rsub__(self, other):
@@ -105,13 +124,13 @@ class HierZero:
             other = HierZero(other)
         return other.__sub__(self)
 
-    # ====================== УМНОЖЕНИЕ ======================
+    # ========== Умножение ==========
     def __mul__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
         if self.is_perp or other.is_perp:
-            return self.perp()
+            return HierZero.perp()
 
         # 0_k * 0_m = 0_{k+m}
         if self.level > 0 and other.level > 0:
@@ -125,13 +144,13 @@ class HierZero:
 
         # ∞ * ∞ = ∞_{k+m}
         if self.is_inf and other.is_inf:
-            return HierZero(0, self.level + other.level, True, self.sign * other.sign)
+            return HierZero(0, self.level + other.level, is_inf=True, sign=self.sign * other.sign)
 
-        # ∞ * число = ∞ (с соответствующим знаком)
+        # ∞ * число = ∞ (с учётом знака)
         if self.is_inf:
-            return HierZero(0, self.level, True, self.sign * other.sign)
+            return HierZero(0, self.level, is_inf=True, sign=self.sign * (1 if other.sign >= 0 else -1))
         if other.is_inf:
-            return HierZero(0, other.level, True, self.sign * other.sign)
+            return HierZero(0, other.level, is_inf=True, sign=self.sign * other.sign)
 
         # обычное умножение
         return HierZero(self.value * other.value)
@@ -139,41 +158,42 @@ class HierZero:
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    # ====================== ДЕЛЕНИЕ ======================
+    # ========== Деление ==========
     def __truediv__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
-        if other.is_perp or self.is_perp:
-            return self.perp()
+        if self.is_perp or other.is_perp:
+            return HierZero.perp()
 
         # 0_k / 0_m = 0_{max(k,m)+1}
         if self.level > 0 and other.level > 0:
             return HierZero(0, max(self.level, other.level) + 1)
 
-        # a / 0_k = ∞_{k+1}   (a — число или бесконечность)
+        # Деление на глубокий нуль
         if other.level > 0:
-            # Если числитель бесконечность: ∞_k / 0_m = ∞_{k+m+1}
+            # ∞_k / 0_m = ∞_{k+m+1}
             if self.is_inf:
-                return HierZero(0, self.level + other.level + 1, True, self.sign)
+                return HierZero(0, self.level + other.level + 1, is_inf=True, sign=self.sign)
+            # a / 0_k = ∞_{k+1}
             else:
-                # Обычное число / 0_k = ∞_{k+1}
-                return HierZero(0, other.level + 1, True, self.sign)
+                return HierZero(0, other.level + 1, is_inf=True, sign=self.sign)
 
-        # a / ∞_k = 0_k
+        # Деление на бесконечность: a / ∞_k = 0_k
         if other.is_inf:
             # 0_k / ∞_m = 0_{k+m}
             if self.level > 0:
                 return HierZero(0, self.level + other.level)
+            # число / ∞_k = 0_k
             return HierZero(0, other.level)
 
-        # ∞_k / число = ∞_k
+        # Деление бесконечности на число: ∞_k / a = ∞_k
         if self.is_inf:
-            return HierZero(0, self.level, True, self.sign)
+            return HierZero(0, self.level, is_inf=True, sign=self.sign)
 
-        # деление на вещественный ноль (обычный 0.0)
+        # Деление на вещественный ноль (обычный 0.0)
         if other.value == 0 or abs(other.value) < 1e-10:
-            return HierZero(0, 1, True, self.sign)
+            return HierZero(0, 1, is_inf=True, sign=self.sign)
 
         return HierZero(self.value / other.value)
 
@@ -182,37 +202,36 @@ class HierZero:
             other = HierZero(other)
         return other.__truediv__(self)
 
-    # ====================== СТЕПЕНЬ ======================
+    # ========== Возведение в степень ==========
     def __pow__(self, other):
         if not isinstance(other, HierZero):
             other = HierZero(other)
 
         if self.is_perp or other.is_perp:
-            return self.perp()
+            return HierZero.perp()
 
         # a^0 = 1
         if not other.is_inf and other.level == 0 and other.value == 0:
             return HierZero(1.0)
 
-        # 0_k ^ n (n целое)
+        # 0_k ^ n (n целое, n>0)
         if self.level > 0 and not other.is_inf and other.level == 0:
-            # n > 0: 0_k^n = 0_{n*k}
-            if other.value > 0:
-                return HierZero(0, int(self.level * other.value))
-            # n < 0: 0_k^n = ∞_{(k+1)*|n|}
+            n = other.value
+            if n > 0:
+                return HierZero(0, int(self.level * n))
             else:
-                n = int(abs(other.value))
-                return HierZero(0, (self.level + 1) * n, True, self.sign)
+                # 0_k ^ (-n) = ∞_{(k+1)*|n|}
+                m = int(abs(n))
+                return HierZero(0, (self.level + 1) * m, is_inf=True, sign=self.sign)
 
-        # ∞_k ^ n (n целое)
+        # ∞_k ^ n (n целое, n>0)
         if self.is_inf and not other.is_inf and other.level == 0:
-            # n > 0: ∞_k^n = ∞_{n*k}
-            if other.value > 0:
-                return HierZero(0, int(self.level * other.value), True, self.sign)
-            # n < 0: ∞_k^n = 0_{k*|n|}
+            n = other.value
+            if n > 0:
+                return HierZero(0, int(self.level * n), is_inf=True, sign=self.sign)
             else:
-                n = int(abs(other.value))
-                return HierZero(0, self.level * n)
+                m = int(abs(n))
+                return HierZero(0, self.level * m)
 
         # 0_k ^ ∞_m = 0_{k+m}
         if self.level > 0 and other.is_inf:
@@ -220,32 +239,21 @@ class HierZero:
 
         # ∞_k ^ ∞_m = ∞_{k+m}
         if self.is_inf and other.is_inf:
-            return HierZero(0, self.level + other.level, True, self.sign)
+            return HierZero(0, self.level + other.level, is_inf=True, sign=self.sign)
 
-        # Дробные показатели для нулей и бесконечностей (через корень)
-        # Это общий случай: a ** (p/q) = корень степени q из a^p
-        # Для упрощения используем логарифмическое округление
-        if (self.level > 0 or self.is_inf) and not other.is_inf and other.level == 0 and other.value != int(other.value):
-            # Дробный показатель
-            from fractions import Fraction
-            frac = Fraction(other.value).limit_denominator()
-            p = frac.numerator
-            q = frac.denominator
-            if self.level > 0:
-                # 0_k^(p/q) = 0_{ceil(k*p/q)}
-                new_level = (self.level * p + q - 1) // q
-                return HierZero(0, new_level)
-            if self.is_inf:
-                # ∞_k^(p/q) = ∞_{ceil(k*p/q)}
-                new_level = (self.level * p + q - 1) // q
-                return HierZero(0, new_level, True, self.sign)
-        # Обычная степень
+        # обычная степень
         return HierZero(self.value ** other.value)
 
+    # ========== Унарный минус ==========
     def __neg__(self):
-        return HierZero(self.value, self.level, self.is_inf, -self.sign)
+        return HierZero(self.value, self.level, self.is_inf, -self.sign, self.is_perp)
 
-    def perp(self):
-        obj = HierZero(0)
-        obj.is_perp = True
-        return obj
+    # ========== Равенство (для тестов) ==========
+    def __eq__(self, other):
+        if not isinstance(other, HierZero):
+            return False
+        return (self.is_perp == other.is_perp and
+                self.is_inf == other.is_inf and
+                self.level == other.level and
+                self.sign == other.sign and
+                (self.value == other.value or (self.level == 0 and not self.is_inf)))
