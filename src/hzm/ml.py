@@ -13,12 +13,14 @@ def grad_to_hz(grad: float, eps_min: float = 1e-4, eps_max: float = 1e1, c: floa
         k = max(1, int(math.floor(-math.log10(abs_g) / c)))
         return HierZero.zero(k)
     elif abs_g > eps_max:
-        # exploding
+        # exploding – защита от переполнения log10
         try:
             log_val = math.log10(abs_g)
         except OverflowError:
             log_val = 100  # очень большое число
         k = max(1, int(math.floor(log_val / c)))
+        # ограничим k разумным максимумом (например, 20), чтобы не создавать бесконечные уровни
+        k = min(k, 20)
         sign = 1 if grad > 0 else -1
         return HierZero.infinity(k, sign=sign)
     else:
