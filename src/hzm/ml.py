@@ -4,33 +4,47 @@ import torch.nn as nn
 from .core import HierZero
 
 def grad_to_hz(grad: float, eps_min: float = 1e-4, eps_max: float = 1e1, c: float = 1.0):
+    """
+    Преобразует величину градиента в иерархический элемент HZM.
+    Для vanishing (grad < eps_min) -> 0_k, k = floor(-log10(grad)/c)
+    Для exploding (grad > eps_max) -> ∞_k, k = floor(log10(grad)/c)
+    """
     if math.isnan(grad) or math.isinf(grad):
         return HierZero.perp()
     abs_g = abs(grad)
+    if abs_g == 0:
+        return HierZero.zero(10)   # абсолютный ноль
     if abs_g < eps_min:
-        if abs_g == 0:
-            k = 5
-        else:
-            k = max(0, int(math.floor(-math.log10(abs_g) / c)))
-        return HierZero.zero(max(1, k))
+        # vanishing
+        k = max(1, int(math.floor(-math.log10(abs_g) / c)))
+        return HierZero.zero(k)
     elif abs_g > eps_max:
-        k = max(0, int(math.floor(math.log10(abs_g) / c)))
+        # exploding
+        k = max(1, int(math.floor(math.log10(abs_g) / c)))
         sign = 1 if grad > 0 else -1
-        return HierZero.infinity(max(1, k), sign=sign)
+        return HierZero.infinity(k, sign=sign)
     else:
         return HierZero.real(grad)
 
 class HZMAdam(torch.optim.Adam):
+    """
+    Adam с адаптацией градиентов на основе уровня HZM.
+    Для vanishing (0_k): если k >= порога, заменяем градиент на константу.
+    Для exploding (∞_k): если k >= порога, заменяем градиент на маленькую константу.
+    """
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, amsgrad=False, *,
                  hzm_eps_min=1e-4, hzm_eps_max=1e1, hzm_c=1.0,
-                 vanishing_fix=True, exploding_clip=True):
+                 vanishing_threshold=2, exploding_threshold=2,
+                 vanishing_replace_value=1e-3, exploding_replace_value=1e-3):
         super().__init__(params, lr, betas, eps, weight_decay, amsgrad)
         self.hzm_eps_min = hzm_eps_min
         self.hzm_eps_max = hzm_eps_max
         self.hzm_c = hzm_c
-        self.vanishing_fix = vanishing_fix
-        self.exploding_clip = exploding_clip
+        self.vanishing_threshold = vanishing_threshold
+        self.exploding_threshold = exploding_threshold
+        self.vanishing_replace_value = vanishing_replace_value
+        self.exploding_replace_value = exploding_replace_value
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -44,6 +58,11 @@ class HZMAdam(torch.optim.Adam):
                 if p.grad is None:
                     continue
                 grad = p.grad
+                # Пропускаем, если градиент содержит nan/inf
+                if not torch.isfinite(grad).all():
+                    p.grad = None
+                    continue
+
                 grad_norm = grad.abs().mean().item()
                 hz_grad = grad_to_hz(grad_norm, self.hzm_eps_min, self.hzm_eps_max, self.hzm_c)
 
@@ -51,23 +70,29 @@ class HZMAdam(torch.optim.Adam):
                     p.grad = None
                     continue
 
+                # Обработка vanishing (0_k)
                 if not hz_grad.is_inf and hz_grad.level > 0:
                     k = hz_grad.level
-                    if self.vanishing_fix and k >= 3:
-                        # Агрессивное восстановление: заменяем градиент на константу 1e-3
-                        p.grad = torch.full_like(grad, 1e-3) * grad.sign()
+                    if k >= self.vanishing_threshold:
+                        # Агрессивное восстановление: заменяем градиент на константу
+                        p.grad = torch.full_like(grad, self.vanishing_replace_value) * grad.sign()
                     else:
+                        # Мягкое масштабирование
                         scale = 1.0 + 0.5 * k
                         p.grad = grad * scale
+
+                # Обработка exploding (∞_k)
                 elif hz_grad.is_inf:
                     k = hz_grad.level
-                    if self.exploding_clip and k >= 3:
-                        # Клиппируем градиент по норме (максимум 1.0)
-                        torch.nn.utils.clip_grad_norm_([p], max_norm=1.0)
+                    if k >= self.exploding_threshold:
+                        # Агрессивное подавление: заменяем на маленькую константу
+                        p.grad = torch.full_like(grad, self.exploding_replace_value) * grad.sign()
                     else:
+                        # Мягкое масштабирование
                         scale = 1.0 / (1.0 + 0.5 * k)
                         p.grad = grad * scale
-                # иначе scale=1
+
+                # Нормальные градиенты (k=0) оставляем без изменений
 
         super().step(closure)
         return loss
