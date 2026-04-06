@@ -4,19 +4,21 @@ import torch.nn as nn
 from .core import HierZero
 
 def grad_to_hz(grad: float, eps_min: float = 1e-4, eps_max: float = 1e1, c: float = 1.0):
-    """Преобразует величину градиента в иерархический элемент HZM."""
     if math.isnan(grad) or math.isinf(grad):
         return HierZero.perp()
     abs_g = abs(grad)
     if abs_g == 0:
         return HierZero.zero(10)
     if abs_g < eps_min:
-        # vanishing
         k = max(1, int(math.floor(-math.log10(abs_g) / c)))
         return HierZero.zero(k)
     elif abs_g > eps_max:
         # exploding
-        k = max(1, int(math.floor(math.log10(abs_g) / c)))
+        try:
+            log_val = math.log10(abs_g)
+        except OverflowError:
+            log_val = 100  # очень большое число
+        k = max(1, int(math.floor(log_val / c)))
         sign = 1 if grad > 0 else -1
         return HierZero.infinity(k, sign=sign)
     else:
