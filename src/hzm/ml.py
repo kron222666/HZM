@@ -30,15 +30,9 @@ def grad_to_hz(grad: float, eps_min: float = 1e-3, eps_max: float = 1e3, c: floa
 
 
 class HZMAdam(torch.optim.Adam):
-    """
-    Адаптивный Adam с коррекцией на основе уровня HZM.
-    Для каждого параметра, если его градиент превращается в 0_k (vanishing),
-    мы увеличиваем learning rate для этого параметра.
-    Если градиент становится ∞_k (exploding) – уменьшаем learning rate.
-    """
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, amsgrad=False, *,
-                 hzm_eps_min=1e-3, hzm_eps_max=1e3, hzm_c=2.0):
+                 hzm_eps_min=1e-4, hzm_eps_max=1e2, hzm_c=1.0):
         super().__init__(params, lr, betas, eps, weight_decay, amsgrad)
         self.hzm_eps_min = hzm_eps_min
         self.hzm_eps_max = hzm_eps_max
@@ -52,36 +46,26 @@ class HZMAdam(torch.optim.Adam):
                 loss = closure()
 
         for group in self.param_groups:
-            lr = group['lr']
             for p in group['params']:
                 if p.grad is None:
                     continue
                 grad = p.grad
-                # Анализируем градиент с помощью HZM
-                # Берём среднее абсолютное значение градиента как репрезентативную норму
                 grad_norm = grad.abs().mean().item()
                 hz_grad = grad_to_hz(grad_norm, self.hzm_eps_min, self.hzm_eps_max, self.hzm_c)
 
-                # Корректируем learning rate для этого параметра на основе уровня
                 if hz_grad.is_perp:
-                    # Полная неопределённость – пропускаем шаг
+                    p.grad = None   # пропускаем параметр
                     continue
                 elif not hz_grad.is_inf and hz_grad.level > 0:
-                    # vanishing: уровень k => увеличиваем LR
                     k = hz_grad.level
-                    adaptive_lr = lr * (1.0 + 0.5 * k)   # например, +50% за каждый уровень
+                    scale = 1.0 + 0.5 * k      # увеличиваем эффективный LR
                 elif hz_grad.is_inf:
-                    # exploding: уровень k => уменьшаем LR
                     k = hz_grad.level
-                    adaptive_lr = lr / (1.0 + 0.5 * k)
+                    scale = 1.0 / (1.0 + 0.5 * k)  # уменьшаем LR
                 else:
-                    adaptive_lr = lr
+                    scale = 1.0
 
-                # Применяем стандартный шаг Adam с адаптивным LR
-                # (временно меняем lr для этого параметра)
-                orig_lr = group['lr']
-                group['lr'] = adaptive_lr
-                super().step()
-                group['lr'] = orig_lr
-                break   # после обработки одного параметра выходим, чтобы не делать двойной шаг
+                p.grad = grad * scale   # масштабируем градиент
+
+        super().step(closure)
         return loss
